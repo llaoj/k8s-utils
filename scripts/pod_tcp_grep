@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+tmp_dir="/tmp/pod_tcp"
+
+func_pod_tcp() {
+    local container_list
+    container_list="$(docker ps -f 'status=running' | grep -v /pause | awk '{print $1}')"
+    test ! -d "${tmp_dir}" && mkdir ${tmp_dir}
+    for i in ${container_list#CONTAINER}; do
+        pid=$(docker inspect -f '{{.State.Pid}}' "$i")
+        pod_name=$(docker inspect -f '{{index .Config.Labels "io.kubernetes.pod.name"}}' "$i")
+        local tmp_file="${tmp_dir}/${pod_name}_${i}"
+        nsenter -t "$pid" -n ss -natup >"$tmp_file"
+    done
+}
+
+func_pod_tcp
+
+grep -rn "$1" "${tmp_dir}" 2>&1
